@@ -70,7 +70,7 @@ func (p PrivKey) String() string {
 	return hex.EncodeToString(p[:])
 }
 
-func (p PrivKey) ToBytes() []byte {
+func (p PrivKey) Bytes() []byte {
 	return p[:]
 }
 
