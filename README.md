@@ -59,7 +59,7 @@ Sign a message using a private key:
 
 ```go
 data := []byte("Hello, PEC256!")
-r, s, err := modular.Sign(data, privKey.ToBig())
+r, s, err := modular.Sign(data, privKey.BigInt())
 if err != nil {
     log.Fatalf("Failed to sign data: %v", err)
 }
@@ -71,7 +71,7 @@ fmt.Printf("Signature (r, s): (%x, %x)\n", r, s)
 Verify a signature using a public key:
 
 ```go
-valid, err := modular.Verify(data, r, s, pubKey.ToBig())
+valid, err := modular.Verify(data, r, s, pubKey.BigInt())
 if err != nil {
     log.Fatalf("Failed to verify signature: %v", err)
 }
@@ -146,12 +146,12 @@ if err != nil {
 
 2. **Sign Data**:
    ```go
-   r, s, err := modular.Sign(data, privKey.ToBig())
+   r, s, err := modular.Sign(data, privKey.BigInt())
    ```
 
 3. **Verify Signature**:
    ```go
-   valid, err := modular.Verify(data, r, s, pubKey.ToBig())
+   valid, err := modular.Verify(data, r, s, pubKey.BigInt())
    ```
 
 4. **Derive Shared Secret**:
