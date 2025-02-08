@@ -63,13 +63,13 @@ func TestPubKeyValidation(t *testing.T) {
 
 	pub, _ := m.GetPubKey(priv)
 
-	logger.Info("Pubkey generated", zap.String("pubkey", pub.ToString()))
+	logger.Info("Pubkey generated", zap.String("pubkey", pub.String()))
 
-	if pub.ToString() != pubA {
+	if pub.String() != pubA {
 		t.Errorf("Error in obtaining the public key, the key does not match the original. A: %v, B: %v", pubA, pub)
 	}
 
-	logger.Info("Pubkey validation completed", zap.String("generated", pub.ToString()), zap.String("expected", pubA))
+	logger.Info("Pubkey validation completed", zap.String("generated", pub.String()), zap.String("expected", pubA))
 }
 
 func TestSignature(t *testing.T) {
@@ -83,7 +83,7 @@ func TestSignature(t *testing.T) {
 
 	// Sign the message
 	logger.Info("Signing message")
-	r, s, err := m.Sign(msgHash[:], StringToPrivKey(privA).ToBig())
+	r, s, err := m.Sign(msgHash[:], StringToPrivKey(privA).BigInt())
 	if err != nil {
 		t.Errorf("Error signing message: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestSignature(t *testing.T) {
 
 	logger.Info("Signature generated", zap.String("signature", hex.EncodeToString(signature)))
 
-	isValid, err := m.Verify(msgHash[:], r, s, StringToPubKey(pubA).ToBig())
+	isValid, err := m.Verify(msgHash[:], r, s, StringToPubKey(pubA).BigInt())
 	if err != nil {
 		t.Errorf("Error verifying signature: %v", err)
 	}
@@ -118,12 +118,12 @@ func TestSignature2(t *testing.T) {
 	}
 	logger.Info("Generated Private Key", zap.String("private_key", hex.EncodeToString(priv[:])))
 
-	if !PModular.IsValidPubKey(pub.ToBig()) {
-		t.Errorf("Invalid pubkey: %s", pub.ToString())
+	if !PModular.IsValidPubKey(pub.BigInt()) {
+		t.Errorf("Invalid pubkey: %s", pub.String())
 	}
 
 	logger.Info("Signing message")
-	r, s, err := PModular.Sign(message, priv.ToBig())
+	r, s, err := PModular.Sign(message, priv.BigInt())
 	if err != nil {
 		t.Errorf("Error signing message: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestSignature2(t *testing.T) {
 
 	logger.Info("Public Key", zap.String("public_key", hex.EncodeToString(pub[:])))
 
-	isValid, err := PModular.Verify(message, r, s, pub.ToBig())
+	isValid, err := PModular.Verify(message, r, s, pub.BigInt())
 	if err != nil {
 		t.Errorf("Error verifying signature: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestModifiedSignature(t *testing.T) {
 	logger.Info("Generated Private Key", zap.String("private_key", hex.EncodeToString(priv[:])))
 
 	logger.Info("Signing message")
-	r, s, err := PModular.Sign(message, priv.ToBig())
+	r, s, err := PModular.Sign(message, priv.BigInt())
 	if err != nil {
 		t.Errorf("Error signing message: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestModifiedSignature(t *testing.T) {
 
 	messageModified := []byte("Test message 2")
 
-	isValid, err := PModular.Verify(messageModified, r, s, pub.ToBig())
+	isValid, err := PModular.Verify(messageModified, r, s, pub.BigInt())
 	if err != nil {
 		logger.Error("Error verifying signature", zap.Error(err))
 	}
@@ -189,7 +189,7 @@ func TestInvalidPubKey(t *testing.T) {
 	logger.Info("Generated Private Key", zap.String("private_key", hex.EncodeToString(priv[:])))
 
 	logger.Info("Signing message")
-	r, s, err := PModular.Sign(message, priv.ToBig())
+	r, s, err := PModular.Sign(message, priv.BigInt())
 	if err != nil {
 		t.Errorf("Error signing message: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestInvalidPubKey(t *testing.T) {
 
 	logger.Info("Public Key", zap.String("public_key", hex.EncodeToString(pub[:])))
 
-	isValid, err := PModular.Verify(message, r, s, StringToPubKey(pubB).ToBig())
+	isValid, err := PModular.Verify(message, r, s, StringToPubKey(pubB).BigInt())
 	if err != nil {
 		logger.Error("Error verifying signature", zap.Error(err))
 	}
@@ -333,7 +333,7 @@ func TestMemoryUsage(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error generating key pair: %v", err)
 		}
-		shared := m.generateSharedKey(priv.ToBig(), pub.ToBig())
+		shared := m.generateSharedKey(priv.BigInt(), pub.BigInt())
 
 		if i%100 == 0 {
 			logger.Debug("Memory test progress",
@@ -434,8 +434,8 @@ func BenchmarkKeyExchange(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.generateSharedKey(alicePriv.ToBig(), bobPub.ToBig())
-		m.generateSharedKey(bobPriv.ToBig(), alicePub.ToBig())
+		m.generateSharedKey(alicePriv.BigInt(), bobPub.BigInt())
+		m.generateSharedKey(bobPriv.BigInt(), alicePub.BigInt())
 	}
 
 	b.StopTimer()

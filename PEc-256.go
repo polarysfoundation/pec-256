@@ -1,11 +1,3 @@
-// Package pec256 implements a cryptographic algorithm based on elliptic curves,
-// utilizing modular arithmetic to generate secure public and private keys, perform signature operations,
-// and ensure constant-time execution to prevent timing attacks. The algorithm includes key pair generation,
-// public key derivation, signature creation and verification, as well as secure shared key generation.
-// The underlying modular operations are performed using a specific set of primes, and randomness is
-// used to enhance security by generating secure seeds and ensuring unpredictable behavior during
-// cryptographic operations.
-
 package pec256
 
 import (
@@ -51,23 +43,20 @@ func (m *Modular) Builder(b []byte) (*big.Int, *big.Int, []byte, SharedKey, erro
 	priv := m.generatePrivKey(s)
 	pub, checksum := m.derivatePubKey(priv)
 
-	tempChecksum := pm256.Sum256(pub.Bytes())
-	generatedChecksum := tempChecksum[:4]
-	if !constantTimeEqual(generatedChecksum, checksum) {
+	tpub := pm256.Sum256(pub.Bytes())
+
+	if !constantTimeEqual(tpub[:4], checksum) {
 		return nil, nil, nil, SharedKey{}, errors.New("checksum mismatch: potential timing attack detected")
 	}
 
-	sharedKey := m.generateSharedKey(priv.ToBig(), pub)
+	sharedKey := m.generateSharedKey(priv.BigInt(), pub)
 
-	return priv.ToBig(), pub, checksum, sharedKey, nil
+	return priv.BigInt(), pub, checksum, sharedKey, nil
 }
 
 // structurer generates a big integer 'y' by performing modular operations with the byte array 'b' and prime 'n'.
 func (m *Modular) structurer(b []byte, n *big.Int) *big.Int {
-	seed := make([]byte, 32)
-	if _, err := rand.Read(seed); err != nil {
-		panic("failed to generate secure random seed")
-	}
+	seed := generateSecureRandomBytes(32)
 
 	x := new(big.Int).Mul(m.PrimeA, m.PrimeB)
 	r := new(big.Int).Mul(x.Add(x, m.PrimeA), m.PrimeB)
@@ -91,16 +80,11 @@ func (m *Modular) structurer(b []byte, n *big.Int) *big.Int {
 
 // ShiftBaseModular updates the base modular (BModular) by generating a random seed and applying modular exponentiation.
 func (m *Modular) ShiftBaseModular() {
-	seed := make([]byte, 32)
-	if _, err := rand.Read(seed); err != nil {
-		panic("failed to generate secure random seed")
-	}
-
+	seed := generateSecureRandomBytes(32)
 	s := bytesToBigInt(seed)
 	s.Mod(s, m.PrimeA)
 
 	bm := new(big.Int).Exp(m.PrimeB, s, m.PrimeA)
-
 	m.BModular = bm
 }
 
@@ -111,10 +95,7 @@ func (m *Modular) GenerateKeyPair() (PrivKey, PubKey, []byte, error) {
 
 // generateKeyPair creates a key pair securely by performing dummy operations to ensure constant-time execution.
 func (m *Modular) generateKeyPair() (PrivKey, PubKey, []byte, error) {
-	initialSeed := make([]byte, 64)
-	if _, err := rand.Read(initialSeed); err != nil {
-		return PrivKey{}, PubKey{}, nil, errors.New("failed to generate secure random seed")
-	}
+	initialSeed := generateSecureRandomBytes(64)
 
 	start := makeTimestamp()
 
@@ -153,7 +134,7 @@ func (m *Modular) GetPubKey(p PrivKey) (PubKey, []byte) {
 // SharedKey generates a shared secret key using modular exponentiation with a private key.
 func (m *Modular) SharedKey(priv PrivKey) SharedKey {
 	pub, _ := m.derivatePubKey(priv)
-	return m.generateSharedKey(priv.ToBig(), pub)
+	return m.generateSharedKey(priv.BigInt(), pub)
 }
 
 // derivatePubKey calculates the public key and checksum from a given private key.
@@ -345,4 +326,13 @@ func PEC256() *Modular {
 // constantTimeEqual compares two byte slices in constant time, ensuring no early exit points.
 func constantTimeEqual(x, y []byte) bool {
 	return subtle.ConstantTimeCompare(x, y) == 1
+}
+
+// generateSecureRandomBytes generates a secure random byte array of the specified length.
+func generateSecureRandomBytes(length int) []byte {
+	seed := make([]byte, length)
+	if _, err := rand.Read(seed); err != nil {
+		panic("failed to generate secure random seed")
+	}
+	return seed
 }

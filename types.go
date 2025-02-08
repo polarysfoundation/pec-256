@@ -19,15 +19,15 @@ func BytesToSharedKey(b []byte) SharedKey {
 	return s
 }
 
-func (s SharedKey) ToBig() *big.Int {
+func (s SharedKey) BigInt() *big.Int {
 	return new(big.Int).SetBytes(s[:])
 }
 
-func (s SharedKey) ToBytes() []byte {
+func (s SharedKey) Bytes() []byte {
 	return s[:]
 }
 
-func (s SharedKey) ToString() string {
+func (s SharedKey) String() string {
 	return hex.EncodeToString(s[:])
 }
 
@@ -62,11 +62,11 @@ func StringToPrivKey(s string) PrivKey {
 	return BytesToPrivKey(b)
 }
 
-func (p PrivKey) ToBig() *big.Int {
+func (p PrivKey) BigInt() *big.Int {
 	return new(big.Int).SetBytes(p[:])
 }
 
-func (p PrivKey) ToString() string {
+func (p PrivKey) String() string {
 	return hex.EncodeToString(p[:])
 }
 
@@ -75,7 +75,7 @@ func (p PrivKey) ToBytes() []byte {
 }
 
 func (p PrivKey) BitLen() int {
-	return p.ToBig().BitLen()
+	return p.BigInt().BitLen()
 }
 
 func (p *PrivKey) SetBytes(b []byte) {
@@ -97,7 +97,7 @@ func BytesToPubKey(b []byte) PubKey {
 }
 
 func (p PubKey) BitLen() int {
-	return p.ToBig().BitLen()
+	return p.BigInt().BitLen()
 }
 
 func StringToPubKey(s string) PubKey {
@@ -113,15 +113,15 @@ func BigToPubKey(n *big.Int) PubKey {
 	return BytesToPubKey(n.Bytes())
 }
 
-func (p PubKey) ToBig() *big.Int {
+func (p PubKey) BigInt() *big.Int {
 	return new(big.Int).SetBytes(p[:])
 }
 
-func (p PubKey) ToString() string {
+func (p PubKey) String() string {
 	return hex.EncodeToString(p[:])
 }
 
-func (p PubKey) ToBytes() []byte {
+func (p PubKey) Bytes() []byte {
 	return p[:]
 }
 
