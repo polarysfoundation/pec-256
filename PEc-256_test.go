@@ -398,7 +398,83 @@ func TestFuzzingInputs(t *testing.T) {
 
 	logger.Info("Fuzzing test completed")
 }
+func TestVerify(t *testing.T) {
+	logger.Info("Starting Verify test")
 
+	m := PEC256()
+
+	message := []byte("Test message for verification")
+	priv, pub, _, err := m.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("Error generating key pair: %v", err)
+	}
+
+	logger.Info("Signing message")
+	r, s, err := m.Sign(message, priv.BigInt())
+	if err != nil {
+		t.Fatalf("Error signing message: %v", err)
+	}
+
+	logger.Info("Verifying signature")
+	isValid, err := m.Verify(message, r, s, pub.BigInt())
+	if err != nil {
+		t.Fatalf("Error verifying signature: %v", err)
+	}
+
+	if !isValid {
+		t.Errorf("Signature verification failed")
+	} else {
+		logger.Info("Signature verified successfully")
+	}
+}
+
+func TestVerifyWithRandomSignatures(t *testing.T) {
+	logger.Info("Starting Verify test with random signatures")
+	m := PEC256()
+
+	priv, pub, _, err := m.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("Error generating key pair: %v", err)
+	}
+
+	iterations := 30
+
+	for i := 0; i < iterations; i++ {
+		message := make([]byte, 32)
+		_, err := rand.Read(message)
+		if err != nil {
+			t.Fatalf("Error generating random message: %v", err)
+		}
+
+		logger.Info("Message generated", zap.String("message", hex.EncodeToString(message)))
+
+		r, s, err := m.Sign(message, priv.BigInt())
+		if err != nil {
+			t.Fatalf("Error signing message: %v", err)
+		}
+
+		signature := append(r.Bytes(), s.Bytes()...)
+
+		logger.Info("Public Key", zap.String("public_key", hex.EncodeToString(pub[:])))
+
+		logger.Info("Signature generated", zap.String("signature", hex.EncodeToString(signature)))
+
+		isValid, err := m.Verify(message, r, s, pub.BigInt())
+		if err != nil {
+			t.Fatalf("Error verifying signature: %v", err)
+		}
+
+		if !isValid {
+			t.Errorf("Signature verification failed at iteration %d", i)
+		}
+
+		if i%100 == 0 {
+			logger.Info("Progress", zap.Int("iteration", i))
+		}
+	}
+
+	logger.Info("Verify test with random signatures completed")
+}
 func BenchmarkKeyGeneration(b *testing.B) {
 	m := PEC256()
 	logger.Info("Starting key generation benchmark", zap.Int("iterations", b.N))

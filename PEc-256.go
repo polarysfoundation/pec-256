@@ -200,7 +200,7 @@ func generateSecureK(n *big.Int) (*big.Int, error) {
 	one := big.NewInt(1)
 	nMinusOne := new(big.Int).Sub(n, one)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		k, err := rand.Int(rand.Reader, nMinusOne)
 		if err != nil {
 			return nil, err
@@ -238,10 +238,10 @@ func (m *Modular) Sign(data []byte, privateKey *big.Int) (*big.Int, *big.Int, er
 
 	var r, s *big.Int
 
-	for i := 0; i < 100; i++ {
+	for {
 		k, err := generateSecureK(n)
 		if err != nil {
-			continue
+			return nil, nil, fmt.Errorf("failed to generate secure k: %v", err)
 		}
 
 		r = new(big.Int).Exp(m.PrimeB, k, m.PrimeA)
@@ -264,8 +264,6 @@ func (m *Modular) Sign(data []byte, privateKey *big.Int) (*big.Int, *big.Int, er
 			return r, s, nil
 		}
 	}
-
-	return nil, nil, errors.New("failed to generate valid signature after multiple attempts")
 }
 
 // Verify checks the validity of a signature (r, s) over the given 'data' using the public key.
