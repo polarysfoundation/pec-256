@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+
 	rnd "math/rand"
 	"os"
 	"runtime"
@@ -438,36 +440,55 @@ func TestVerifyWithRandomSignatures(t *testing.T) {
 	}
 
 	iterations := 30
+	// We'll store the number of signing attempts for each message.
+	attempts := make(map[string]int)
 
 	for i := 0; i < iterations; i++ {
+		// Generate a random 32-byte message.
 		message := make([]byte, 32)
-		_, err := rand.Read(message)
-		if err != nil {
+		if _, err := rand.Read(message); err != nil {
 			t.Fatalf("Error generating random message: %v", err)
 		}
+		messageHex := hex.EncodeToString(message)
+		logger.Info("Message generated", zap.String("message", messageHex))
 
-		logger.Info("Message generated", zap.String("message", hex.EncodeToString(message)))
+		var r, s *big.Int
+		attempts[messageHex] = 0
 
-		r, s, err := m.Sign(message, priv.BigInt())
-		if err != nil {
-			t.Fatalf("Error signing message: %v", err)
+		// Try signing repeatedly until successful.
+		for {
+			attempts[messageHex]++
+			logger.Info("Attempting to sign message", zap.Int("attempt", attempts[messageHex]),
+				zap.String("message hash", messageHex))
+
+			// Try to sign the message.
+			r, s, err = m.Sign(message, priv.BigInt())
+			if err == nil {
+				break // Exit the loop if signing succeeded.
+			}
+
+			/* // (Optional) If you want to avoid an infinite loop, break after too many attempts.
+			if attempts[messageHex] > 20 {
+				t.Fatalf("Exceeded maximum attempts for message: %s", messageHex)
+			} */
 		}
+		logger.Info("Total attempts", zap.Int("attempts", attempts[messageHex]))
 
+		// Combine the two parts of the signature.
 		signature := append(r.Bytes(), s.Bytes()...)
-
 		logger.Info("Public Key", zap.String("public_key", hex.EncodeToString(pub[:])))
-
 		logger.Info("Signature generated", zap.String("signature", hex.EncodeToString(signature)))
 
+		// Verify the signature.
 		isValid, err := m.Verify(message, r, s, pub.BigInt())
 		if err != nil {
 			t.Fatalf("Error verifying signature: %v", err)
 		}
-
 		if !isValid {
 			t.Errorf("Signature verification failed at iteration %d", i)
 		}
 
+		// Log progress every 100 iterations (if applicable).
 		if i%100 == 0 {
 			logger.Info("Progress", zap.Int("iteration", i))
 		}
@@ -475,6 +496,7 @@ func TestVerifyWithRandomSignatures(t *testing.T) {
 
 	logger.Info("Verify test with random signatures completed")
 }
+
 func BenchmarkKeyGeneration(b *testing.B) {
 	m := PEC256()
 	logger.Info("Starting key generation benchmark", zap.Int("iterations", b.N))

@@ -200,7 +200,7 @@ func generateSecureK(n *big.Int) (*big.Int, error) {
 	one := big.NewInt(1)
 	nMinusOne := new(big.Int).Sub(n, one)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10000; i++ {
 		k, err := rand.Int(rand.Reader, nMinusOne)
 		if err != nil {
 			return nil, err
@@ -215,13 +215,15 @@ func generateSecureK(n *big.Int) (*big.Int, error) {
 	return nil, errors.New("failed to generate valid k after multiple attempts")
 }
 
-// isValidK checks if 'k' is a valid random integer for cryptographic operations.
 func isValidK(k, n *big.Int) bool {
 	one := big.NewInt(1)
-	nMinusOne := new(big.Int).Sub(n, one)
 
-	return k.Cmp(one) > 0 && k.Cmp(nMinusOne) < 0 &&
-		new(big.Int).GCD(nil, nil, k, nMinusOne).Cmp(one) == 0
+	// Verifica que k esté en [1, n-1]
+	if k.Cmp(one) < 0 || k.Cmp(new(big.Int).Sub(n, one)) > 0 {
+		return false
+	}
+	// Comprueba que GCD(k, n) sea 1
+	return new(big.Int).GCD(nil, nil, k, n).Cmp(one) == 0
 }
 
 // Sign generates a cryptographic signature (r, s) for the given data using the private key.
@@ -230,33 +232,36 @@ func (m *Modular) Sign(data []byte, privateKey *big.Int) (*big.Int, *big.Int, er
 		return nil, nil, errors.New("invalid private key")
 	}
 
-	hash := pm256.Sum256(data)
-	e := bytesToBigInt(hash[:])
+	/* log.Println("e:", e) */
 
 	n := new(big.Int).Sub(m.PrimeA, big.NewInt(1))
 	n.Div(n, big.NewInt(2))
 
-	var r, s *big.Int
+	/* log.Println("n:", n) */
 
-	for {
+	maxAttempts := 5 // Retry limit for signing
+	for i := 0; i < maxAttempts; i++ {
 		k, err := generateSecureK(n)
+		/* log.Println("K:", k) */
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate secure k: %v", err)
+			continue
 		}
 
-		r = new(big.Int).Exp(m.PrimeB, k, m.PrimeA)
+		r := new(big.Int).Exp(m.PrimeB, k, m.PrimeA)
+		/* log.Println("r:", r) */
 		if r.Sign() == 0 {
 			continue
 		}
 
-		kInv := new(big.Int).ModInverse(k, n)
-		if kInv == nil {
-			continue
-		}
+		rBytes := r.Bytes()
+		combined := append(rBytes, data...)
+		hash := pm256.Sum256(combined)
+		e := new(big.Int).SetBytes(hash[:])
+		e.Mod(e, n)
 
-		s = new(big.Int).Mul(r, privateKey)
-		s.Add(s, e)
-		s.Mul(s, kInv)
+		/* log.Println("s:", s) */
+		s := new(big.Int).Mul(privateKey, e)
+		s.Add(s, k)
 		s.Mod(s, n)
 
 		// Ensure s is not 0 and has a modular inverse
@@ -264,6 +269,8 @@ func (m *Modular) Sign(data []byte, privateKey *big.Int) (*big.Int, *big.Int, er
 			return r, s, nil
 		}
 	}
+
+	return nil, nil, fmt.Errorf("failed to generate valid signature after %d attempts", maxAttempts)
 }
 
 // Verify checks the validity of a signature (r, s) over the given 'data' using the public key.
@@ -272,9 +279,14 @@ func (m *Modular) Verify(data []byte, r, s, publicKey *big.Int) (bool, error) {
 		return false, errors.New("invalid input parameters")
 	}
 
+	if !m.IsValidPubKey(publicKey) {
+		return false, errors.New("invalid pubkey")
+	}
+
 	n := new(big.Int).Sub(m.PrimeA, big.NewInt(1))
 	n.Div(n, big.NewInt(2))
 
+	// Validate r and s
 	if r.Cmp(big.NewInt(1)) <= 0 || r.Cmp(m.PrimeA) >= 0 {
 		return false, errors.New("r is out of range")
 	}
@@ -287,26 +299,19 @@ func (m *Modular) Verify(data []byte, r, s, publicKey *big.Int) (bool, error) {
 		return false, errors.New("s has no modular inverse")
 	}
 
-	hash := pm256.Sum256(data)
-	e := bytesToBigInt(hash[:])
+	rBytes := r.Bytes()
+	combined := append(rBytes, data...)
+	hash := pm256.Sum256(combined)
+	e := new(big.Int).SetBytes(hash[:])
+	e.Mod(e, n)
 
-	w := new(big.Int).ModInverse(s, n)
-	if w == nil {
-		return false, errors.New("s has no modular inverse")
-	}
+	// Verify that PrimeB s mod PrimeA is equal to r * (publicKey) e mod PrimeA.
+	left := new(big.Int).Exp(m.PrimeB, s, m.PrimeA)
+	right := new(big.Int).Exp(publicKey, e, m.PrimeA)
+	right.Mul(right, r)
+	right.Mod(right, m.PrimeA)
 
-	u1 := new(big.Int).Mul(e, w)
-	u1.Mod(u1, n)
-
-	u2 := new(big.Int).Mul(r, w)
-	u2.Mod(u2, n)
-
-	v := new(big.Int).Exp(m.PrimeB, u1, m.PrimeA)
-	temp := new(big.Int).Exp(publicKey, u2, m.PrimeA)
-	v.Mul(v, temp)
-	v.Mod(v, m.PrimeA)
-
-	return v.Cmp(r) == 0, nil
+	return left.Cmp(right) == 0, nil
 }
 
 func init() {
