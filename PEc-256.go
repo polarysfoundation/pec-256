@@ -239,15 +239,15 @@ func (m *Modular) Sign(data []byte, privateKey *big.Int) (*big.Int, *big.Int, er
 
 	/* log.Println("n:", n) */
 
-	maxAttempts := 5 // Retry limit for signing
-	for i := 0; i < maxAttempts; i++ {
+	var r, s *big.Int
+	for {
 		k, err := generateSecureK(n)
 		/* log.Println("K:", k) */
 		if err != nil {
 			continue
 		}
 
-		r := new(big.Int).Exp(m.PrimeB, k, m.PrimeA)
+		r = new(big.Int).Exp(m.PrimeB, k, m.PrimeA)
 		/* log.Println("r:", r) */
 		if r.Sign() == 0 {
 			continue
@@ -260,7 +260,7 @@ func (m *Modular) Sign(data []byte, privateKey *big.Int) (*big.Int, *big.Int, er
 		e.Mod(e, n)
 
 		/* log.Println("s:", s) */
-		s := new(big.Int).Mul(privateKey, e)
+		s = new(big.Int).Mul(privateKey, e)
 		s.Add(s, k)
 		s.Mod(s, n)
 
@@ -269,8 +269,6 @@ func (m *Modular) Sign(data []byte, privateKey *big.Int) (*big.Int, *big.Int, er
 			return r, s, nil
 		}
 	}
-
-	return nil, nil, fmt.Errorf("failed to generate valid signature after %d attempts", maxAttempts)
 }
 
 // Verify checks the validity of a signature (r, s) over the given 'data' using the public key.
